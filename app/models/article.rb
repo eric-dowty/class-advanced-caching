@@ -7,6 +7,7 @@ class Article < ActiveRecord::Base
   has_many :taggings
   has_many :tags, :through => :taggings
 
+  include InvalidatesCache
   #default_scope :include => [:comments, :tags]
 
   def to_s
@@ -28,7 +29,11 @@ class Article < ActiveRecord::Base
   end
 
   def self.most_popular
-    all.sort_by{|a| a.comments.count }.last
+    id = Rails.cache.fetch("article_most_popular") do
+      all.sort_by{|a| a.comments.count }.last.id
+    end
+
+    Article.find(id)
   end
 
   def self.random
@@ -57,7 +62,9 @@ class Article < ActiveRecord::Base
   end
 
   def self.total_word_count
-    all.inject(0) {|total, a| total += a.word_count }
+    Rails.cache.fetch("comment_total_word_count") do
+      all.inject(0) {|total, a| total += a.word_count }
+    end
   end
 
   def self.generate_samples(quantity = 1000)
